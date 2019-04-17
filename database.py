@@ -53,10 +53,35 @@ class DataBase:
 		# returns tuple (name, year, filmography); filmography is a list of tuples [Title, Job]
 		# TODO: CHECK IF EXISTS
 		name, birth_year = self.persons.ShowPersonalInfoByID(person_id)
-		filmography_ids = self.moviepersonjob.ShowFilmographyWithIDs()
+		filmography_ids = self.moviepersonjob._ShowFilmographyWithIDs(person_id)
 		filmography = [(self.movies.ShowTitleByID(movie_id), self.jobs.ShowJobByID(job_id)) \
 			for movie_id, job_id in filmography_ids]
 		return name, birth_year, filmography
+
+	def AddEntry(self, title, production_year, involvements, countries):
+		"""
+		Should be called with movie_title, production_year, [(NameOfPerson, BirthYear, Job)] - not empty!, [country,...] - not empty!
+		? returns True or False ? or ErrorMessage
+		calls commit() or rollback()
+		"""
+		# TODO: check correctness of data provided
+		production_year = str(production_year) # not sure if this is necessary
+		if len(involvements) == 0 or len(countries) == 0:
+			return False
+		if self.cursor.execute("""SELECT COUNT(*) FROM Movies WHERE title = ? AND 
+			production_year = ?;""", [title, production_year]).fetchone()[0] > 0:
+			return False	# movie is already in the DB
+		movie_id = self.movies.AddMovie(title, production_year)
+		# functions below do nothing if it is already in the DB; ? what about the function above?
+		for name, birth_year, job in involvements:
+			person_id = self.persons.AddPerson(name, str(birth_year))
+			job_id = self.jobs.AddJob(job)
+			self.moviepersonjob.AddMoviePersonJob(movie_id, person_id, job_id)
+		for country in countries:
+			country_id = self.countries.AddCountry(name)
+			self.moviecountry.AddMovieCountry(movie_id, country_id)
+		self.commit()
+		return True
 
 
 class Movies:
@@ -69,10 +94,22 @@ class Movies:
 
 	def ShowTitleByID(self, movie_id):
 		# TODO: CHECK IF EXISTS
-		return self.cursor.execute("SELECT title FROM Movies WHERE id = ?;", [movie_id]).fetchone()
+		return self.cursor.execute("SELECT title FROM Movies WHERE id = ?;", [movie_id]).fetchone()[0]
+
+	def AddMovie(self, movie_title, production_year):
+		movie_id = self.cursor.execute("""SELECT id FROM Movies WHERE title = ? 
+			AND production_year = ?;""", [movie_title, production_year]).fetchone()
+		if movie_id is not None:		# movie is in the db
+			movie_id = movie_id[0]
+		else:
+			self.cursor.execute("""INSERT INTO Movies (title, production_year) 
+				VALUES (?, ?);""", [movie_title, production_year])
+			movie_id = self.cursor.execute("""SELECT id FROM Movies WHERE title = ? 
+				AND production_year = ?;""", [movie_title, production_year]).fetchone()[0]
+		return movie_id
 
 
-def Persons:
+class Persons:
 	def __init__(self, cursor):
 		self.cursor = cursor
 		self.cursor.execute("""CREATE TABLE IF NOT EXISTS Persons (
@@ -85,7 +122,19 @@ def Persons:
 			[person_id]).fetchone()
 
 	def ShowNameByID(self, person_id):
-		return self.cursor.execute("SELECT name FROM Persons WHERE id = ?", [person_id]).fetchone()
+		return self.cursor.execute("SELECT name FROM Persons WHERE id = ?", [person_id]).fetchone()[0]
+
+	def AddPerson(self, name, birth_year):
+		person_id = self.cursor.execute("""SELECT id FROM Persons WHERE name = ? 
+			AND birth_year = ?;""", [name, birth_year]).fetchone()
+		if person_id is not None:		# person_id is tuple containing existing person id
+			person_id = person_id[0]
+		else:
+			self.cursor.execute("INSERT INTO Persons (name, birth_year) VALUES (?, ?);", 
+				[name, birth_year])
+			person_id = self.cursor.execute("""SELECT id FROM Persons WHERE name = ? 
+				AND birth_year = ?;""", [name, birth_year]).fetchone()[0]
+		return person_id
 
 
 class Countries:
@@ -95,6 +144,18 @@ class Countries:
 								id INTEGER PRIMARY KEY AUTOINCREMENT, 
 								name TEXT NOT NULL);""")
 
+	def AddCountry(self, country):
+		country_id = self.cursor.execute("SELECT id FROM Countries WHERE name = ?;",
+			[country]).fetchone()
+		if country_id is not None:	# country_id is tuple containing existing id
+			country_id = country_id[0]
+		else:
+			self.cursor.execute("INSERT INTO Countries (name) VALUES (?);", [country])
+			country_id = self.cursor.execute("SELECT id FROM Countries WHERE name = ?;",
+				[country]).fetchone()[0]
+		return country_id
+
+
 class Jobs:
 	def __init__(self, cursor):
 		self.cursor = cursor
@@ -103,7 +164,16 @@ class Jobs:
 								job TEXT NOT NULL);""")
 
 	def ShowJobByID(self, job_id):
-		return self.cursor.execute("SELECT title FROM Jobs WHERE id = ?;", [job_id]).fetchone()
+		return self.cursor.execute("SELECT job FROM Jobs WHERE id = ?;", [job_id]).fetchone()[0]
+
+	def AddJob(self, job):
+		job_id = self.cursor.execute("SELECT id FROM Jobs WHERE job = ?;", [job]).fetchone()
+		if job_id is not None:	# job_id is tuple containing existing id
+			job_id = job_id[0]
+		else:
+			self.cursor.execute("INSERT INTO Jobs (job) VALUES (?);", [job])
+			job_id = self.cursor.execute("SELECT id FROM Jobs WHERE job = ?;", [job]).fetchone()[0]
+		return job_id
 
 
 class MovieCountry:
@@ -115,9 +185,20 @@ class MovieCountry:
 
 	# FIXME!!! Function also looks for data from table Countries - is it OK?
 	def ShowCountriesInvolved(self, movie_id):
-		return self.cursor.execute("""SELECT name FROM Countries WHERE id = (
-			SELECT id_country FROM MovieCountry WHERE id_movie = ?);""", 
-			[movie_id]).fetchall()
+		#return self.cursor.execute("""SELECT name FROM Countries WHERE id = (
+		#	SELECT id_country FROM MovieCountry WHERE id_movie = ?);""", 
+		#	[movie_id]).fetchall()
+		country_ids = self.cursor.execute("""SELECT id_country FROM MovieCountry WHERE
+			id_movie = ?;""", [movie_id]).fetchall()
+		results = []
+		for country_id in country_ids:
+			results.append(self.cursor.execute("""SELECT name FROM Countries WHERE 
+				id = ?;""", [country_id[0]]).fetchone()[0])
+		return results
+
+	def AddMovieCountry(self, movie_id, country_id):
+		self.cursor.execute("""INSERT INTO MovieCountry (id_movie, id_country) 
+			VALUES (?, ?);""", [movie_id, country_id])
 
 
 class MoviePersonJob:
@@ -128,10 +209,14 @@ class MoviePersonJob:
 								id_person INTEGER, 
 								id_job INTEGER);""")
 
-	def __ShowFilmographyWithIDs(person_id):
+	def _ShowFilmographyWithIDs(self, person_id):
 		return self.cursor.execute("""SELECT id_movie, id_job FROM MoviePersonJob 
 			WHERE id_person = ?;""", [person_id]).fetchall()
 
-	def ShowPeopleInvolvedIDs(movie_id):
+	def ShowPeopleInvolvedIDs(self, movie_id):
 		return self.cursor.execute("""SELECT id_person, id_job FROM MoviePersonJob 
 			WHERE id_movie = ?;""", [movie_id]).fetchall()
+
+	def AddMoviePersonJob(self, movie_id, person_id, job_id):
+		self.cursor.execute("""INSERT INTO MoviePersonJob (id_movie, id_person,
+			id_job) VALUES (?, ?, ?);""", [movie_id, person_id, job_id])
