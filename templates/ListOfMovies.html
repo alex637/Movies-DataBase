@@ -1,0 +1,13 @@
+<!doctype html>
+<!-- TODO! NOT WORKING -->
+<title>
+	{{ title }}
+</title>
+
+<p>
+	<ul>
+		{% for elem in array %}
+			<li><a href="{{ url_for('movie', movie_id=elem[0]) }}">{{ elem[1] }}</a></li>
+		{% endfor %}
+	</ul>
+</p>
