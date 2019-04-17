@@ -78,7 +78,7 @@ class DataBase:
 			job_id = self.jobs.AddJob(job)
 			self.moviepersonjob.AddMoviePersonJob(movie_id, person_id, job_id)
 		for country in countries:
-			country_id = self.countries.AddCountry(name)
+			country_id = self.countries.AddCountry(country)
 			self.moviecountry.AddMovieCountry(movie_id, country_id)
 		self.commit()
 		return True
