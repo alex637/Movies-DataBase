@@ -12,8 +12,8 @@ Some examples of working with sqlite3. More is via this link: https://docs.pytho
 # year is INTEGER - is it good?
 
 class DataBase:
-	def __init__(self, filename):
-		self.db = sqlite3.connect(filename)
+	def __init__(self, filename, CheckingSameThread=True):
+		self.db = sqlite3.connect(filename, check_same_thread=CheckingSameThread)
 		self.cursor = self.db.cursor()
 		self.movies = Movies(self.cursor)
 		self.persons = Persons(self.cursor)

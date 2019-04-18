@@ -1,0 +1,17 @@
+<!doctype html>
+<head>
+	<title>
+		{{ title }}
+	</title>
+	<h4>
+		List of people in the database:
+	</h4>
+</head>
+
+<p>
+	<ul>
+		{% for elem in array %}
+			<li><a href="{{ url_for('person', person_id=elem[0]) }}">{{ elem[1] }}</a></li>
+		{% endfor %}
+	</ul>
+</p>

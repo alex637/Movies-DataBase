@@ -1,5 +1,19 @@
 <!doctype html>
-<head>Personal page for {{ name }}</head>
-<title>
-	{{ title }}
-</title>
+<head>
+	<h2>
+		Personal page for {{ name }}
+	</h2>
+	<title>
+		{{ title }}
+	</title>
+</head>
+
+<p> Born in {{ birth_year }} </p>
+
+<p>
+	<ul>
+		{% for title, job in filmography %}
+			<li>Movie "{{ title }}"      {{ job }}</li>
+		{% endfor %}
+	</ul>
+</p>

@@ -2,7 +2,7 @@ from database import DataBase
 from flask import Flask, render_template, url_for
 
 filename = 'database1'
-db = DataBase(filename)
+db = DataBase(filename, CheckingSameThread=False)
 
 app = Flask(__name__)
 
@@ -12,21 +12,19 @@ def index():
 
 @app.route('/list_of_movies')
 def ListOfMovies():
-	array = db.ListOfMovies()
-	#return render_template('ListOfMovies.html', title="List of movies", array=array)
-	return "smth"
-
+	return render_template('list_of_movies.html', title="List of movies", array=db.ListOfMovies())
 
 @app.route('/list_of_people')
 def ListOfPeople():
-	array = db.ListOfPeople()
-	return render_template('ListOfPeople.html', title="List of people", array=array)
+	return render_template('list_of_people.html', title="List of people", array=db.ListOfPeople())
 
 @app.route('/movie/movie_id=<int:movie_id>')
 def movie(movie_id):
-	return "Will be showing data for specified movie"
+	title, year, participants, countries = db.ShowMovie(movie_id)
+	return render_template('movie.html', MovieTitle=title, production_year=year, 
+		countries=countries, participants=participants)
 
 @app.route('/person/person_id=<int:person_id>')
 def person(person_id):
-	return "Will be showing data for specified person!"
-	# return render_template('person.html', name=name)
+	name, birth_year, filmography = db.ShowPerson(person_id)
+	return render_template('person.html', name=name, birth_year=birth_year, filmography=filmography)

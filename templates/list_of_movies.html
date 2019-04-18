@@ -1,0 +1,17 @@
+<!doctype html>
+<head>
+	<h4>
+		List of movies in the database:
+	</h4>
+	<title>
+		{{ title }}
+	</title>
+</head>
+
+<p>
+	<ul>
+		{% for elem in array %}
+			<li><a href="{{ url_for('movie', movie_id=elem[0]) }}">{{ elem[1] }}</a></li>
+		{% endfor %}
+	</ul>
+</p>

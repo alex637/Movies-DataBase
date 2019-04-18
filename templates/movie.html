@@ -1,0 +1,22 @@
+<!doctype html>
+<head>
+	<h2>
+		Page for movie "{{ MovieTitle }}"
+	</h2>
+	<title>
+		{{ title }}
+	</title>
+</head>
+
+<p> Made in {{ production_year }}.</p>
+<p> Countries:	{% for country in countries %}
+					{{ country }}   
+				{% endfor %}.</p>
+
+<p>
+	<ul>
+		{% for name, job in participants %}
+			<li>{{ name }} - {{ job }}</li>
+		{% endfor %}
+	</ul>
+</p>
