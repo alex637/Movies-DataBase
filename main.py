@@ -1,7 +1,7 @@
 from database import DataBase
 from flask import Flask, render_template, url_for
 
-filename = 'database1'
+filename = 'database2.db'
 db = DataBase(filename, CheckingSameThread=False)
 
 app = Flask(__name__)

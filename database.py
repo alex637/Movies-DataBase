@@ -8,13 +8,12 @@ Some examples of working with sqlite3. More is via this link: https://docs.pytho
 	connection.close()
 """
 
-# FIXME: fetchone() returns a tuple (object, )!!!
-# year is INTEGER - is it good?
 
 class DataBase:
 	def __init__(self, filename, CheckingSameThread=True):
 		self.db = sqlite3.connect(filename, check_same_thread=CheckingSameThread)
 		self.cursor = self.db.cursor()
+		self.cursor.execute("PRAGMA foreign_keys=on;")
 		self.movies = Movies(self.cursor)
 		self.persons = Persons(self.cursor)
 		self.countries = Countries(self.cursor)
@@ -181,7 +180,9 @@ class MovieCountry:
 		self.cursor = cursor
 		self.cursor.execute("""CREATE TABLE IF NOT EXISTS MovieCountry (
 								id_movie INTEGER, 
-								id_country INTEGER);""")
+								id_country INTEGER,
+								FOREIGN KEY (id_movie) REFERENCES Movies(id), 
+								FOREIGN KEY (id_country) REFERENCES Countries(id));""")
 
 	# FIXME!!! Function also looks for data from table Countries - is it OK?
 	def ShowCountriesInvolved(self, movie_id):
@@ -207,7 +208,10 @@ class MoviePersonJob:
 		self.cursor.execute("""CREATE TABLE IF NOT EXISTS MoviePersonJob (
 								id_movie INTEGER, 
 								id_person INTEGER, 
-								id_job INTEGER);""")
+								id_job INTEGER, 
+								FOREIGN KEY (id_movie) REFERENCES Movies(id), 
+								FOREIGN KEY (id_person) REFERENCES Persons(id), 
+								FOREIGN KEY (id_job) REFERENCES Jobs(id));""")
 
 	def _ShowFilmographyWithIDs(self, person_id):
 		return self.cursor.execute("""SELECT id_movie, id_job FROM MoviePersonJob 

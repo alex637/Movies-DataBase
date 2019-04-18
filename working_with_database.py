@@ -1,6 +1,6 @@
 from database import DataBase
 
-filename = 'database1'
+filename = 'database2.db'
 
 db = DataBase(filename)
 """
@@ -42,7 +42,9 @@ print("People:")
 print(db.ListOfPeople())
 
 print("Some movie:")
-print(db.ShowMovie(1))
+print(db.ShowMovie(2))
 
 print("Some person:")
 print(db.ShowPerson(1))
+
+db.close()
