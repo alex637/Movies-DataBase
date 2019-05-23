@@ -28,3 +28,6 @@ def movie(movie_id):
 def person(person_id):
 	name, birth_year, filmography = db.ShowPerson(person_id)
 	return render_template('person.html', name=name, birth_year=birth_year, filmography=filmography)
+
+if __name__ == '__main__':
+	app.run(host='0.0.0.0', port=5100)
