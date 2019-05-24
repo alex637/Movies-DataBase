@@ -20,6 +20,7 @@ class DataBase:
 		self.jobs = Jobs(self.cursor)
 		self.moviecountry = MovieCountry(self.cursor)
 		self.moviepersonjob = MoviePersonJob(self.cursor)
+		self.personcountry = PersonCountry(self.cursor)
 
 	def commit(self):
 		self.db.commit()
@@ -49,19 +50,20 @@ class DataBase:
 		return title, year, participants, countries
 
 	def ShowPerson(self, person_id):
-		# returns tuple (name, year, filmography); filmography is a list of tuples [Title, Job]
+		# returns tuple (name, year, countries, filmography); filmography is a list of tuples [Title, Job]
 		# TODO: CHECK IF EXISTS
 		name, birth_year = self.persons.ShowPersonalInfoByID(person_id)
 		filmography_ids = self.moviepersonjob._ShowFilmographyWithIDs(person_id)
 		filmography = [(self.movies.ShowTitleByID(movie_id), self.jobs.ShowJobByID(job_id)) \
 			for movie_id, job_id in filmography_ids]
-		return name, birth_year, filmography
+		countries = self.personcountry.ShowCountries(person_id)
+		return name, birth_year, countries, filmography
 
 	def AddEntry(self, title, production_year, involvements, countries):
 		"""
 		Should be called with movie_title, production_year, [(NameOfPerson, BirthYear, Job)] - not empty!, [country,...] - not empty!
-		? returns True or False ? or ErrorMessage
-		calls commit() or rollback()
+		returns True or False
+		calls commit() if ok
 		"""
 		# TODO: check correctness of data provided
 		production_year = str(production_year) # not sure if this is necessary
@@ -70,17 +72,30 @@ class DataBase:
 		if self.cursor.execute("""SELECT COUNT(*) FROM Movies WHERE title = ? AND 
 			production_year = ?;""", [title, production_year]).fetchone()[0] > 0:
 			return False	# movie is already in the DB
+		# functions below add(smth) only if it's not currently in the database
 		movie_id = self.movies.AddMovie(title, production_year)
-		# functions below do nothing if it is already in the DB; ? what about the function above?
+		for country in countries:
+			country_id = self.countries.AddCountry(country)
+			self.moviecountry.AddMovieCountry(movie_id, country_id)		
 		for name, birth_year, job in involvements:
 			person_id = self.persons.AddPerson(name, str(birth_year))
 			job_id = self.jobs.AddJob(job)
 			self.moviepersonjob.AddMoviePersonJob(movie_id, person_id, job_id)
-		for country in countries:
-			country_id = self.countries.AddCountry(country)
-			self.moviecountry.AddMovieCountry(movie_id, country_id)
 		self.commit()
 		return True
+
+	def AddPersonCountry(self, person_name, country_name):
+		person_id =  self.persons.ShowIDByName(person_name)
+		country_id = self.countries.ShowIDByName(country_name)
+		# DEBUG!!!
+		print('person:', person_id, person_name)
+		print('country:', country_id, country_name)
+		if country_id is not None and person_id is not None:
+			self.cursor.execute("INSERT INTO PersonCountry (id_person, id_country) VALUES (?, ?);",
+				[person_id[0], country_id[0]])
+			return True
+		else:
+			return False
 
 
 class Movies:
@@ -98,7 +113,7 @@ class Movies:
 	def AddMovie(self, movie_title, production_year):
 		movie_id = self.cursor.execute("""SELECT id FROM Movies WHERE title = ? 
 			AND production_year = ?;""", [movie_title, production_year]).fetchone()
-		if movie_id is not None:		# movie is in the db
+		if movie_id is not None:
 			movie_id = movie_id[0]
 		else:
 			self.cursor.execute("""INSERT INTO Movies (title, production_year) 
@@ -123,10 +138,13 @@ class Persons:
 	def ShowNameByID(self, person_id):
 		return self.cursor.execute("SELECT name FROM Persons WHERE id = ?", [person_id]).fetchone()[0]
 
+	def ShowIDByName(self, person_name):
+		return self.cursor.execute("SELECT id FROM Persons WHERE name = ?", [person_name]).fetchone()
+
 	def AddPerson(self, name, birth_year):
 		person_id = self.cursor.execute("""SELECT id FROM Persons WHERE name = ? 
 			AND birth_year = ?;""", [name, birth_year]).fetchone()
-		if person_id is not None:		# person_id is tuple containing existing person id
+		if person_id is not None:
 			person_id = person_id[0]
 		else:
 			self.cursor.execute("INSERT INTO Persons (name, birth_year) VALUES (?, ?);", 
@@ -146,13 +164,16 @@ class Countries:
 	def AddCountry(self, country):
 		country_id = self.cursor.execute("SELECT id FROM Countries WHERE name = ?;",
 			[country]).fetchone()
-		if country_id is not None:	# country_id is tuple containing existing id
+		if country_id is not None:
 			country_id = country_id[0]
 		else:
 			self.cursor.execute("INSERT INTO Countries (name) VALUES (?);", [country])
 			country_id = self.cursor.execute("SELECT id FROM Countries WHERE name = ?;",
 				[country]).fetchone()[0]
 		return country_id
+
+	def ShowIDByName(self, country_name):
+		return self.cursor.execute("SELECT id FROM Countries WHERE name = ?;", [country_name]).fetchone()
 
 
 class Jobs:
@@ -167,7 +188,7 @@ class Jobs:
 
 	def AddJob(self, job):
 		job_id = self.cursor.execute("SELECT id FROM Jobs WHERE job = ?;", [job]).fetchone()
-		if job_id is not None:	# job_id is tuple containing existing id
+		if job_id is not None:
 			job_id = job_id[0]
 		else:
 			self.cursor.execute("INSERT INTO Jobs (job) VALUES (?);", [job])
@@ -186,9 +207,6 @@ class MovieCountry:
 
 	# FIXME!!! Function also looks for data from table Countries - is it OK?
 	def ShowCountriesInvolved(self, movie_id):
-		#return self.cursor.execute("""SELECT name FROM Countries WHERE id = (
-		#	SELECT id_country FROM MovieCountry WHERE id_movie = ?);""", 
-		#	[movie_id]).fetchall()
 		country_ids = self.cursor.execute("""SELECT id_country FROM MovieCountry WHERE
 			id_movie = ?;""", [movie_id]).fetchall()
 		results = []
@@ -224,3 +242,33 @@ class MoviePersonJob:
 	def AddMoviePersonJob(self, movie_id, person_id, job_id):
 		self.cursor.execute("""INSERT INTO MoviePersonJob (id_movie, id_person,
 			id_job) VALUES (?, ?, ?);""", [movie_id, person_id, job_id])
+
+class PersonCountry:
+	def __init__(self, cursor):
+		self.cursor = cursor
+		self.cursor.execute("""CREATE TABLE IF NOT EXISTS PersonCountry (
+								id_person INTEGER, 
+								id_country INTEGER, 
+								FOREIGN KEY (id_person)  REFERENCES Persons(id), 
+								FOREIGN KEY (id_country) REFERENCES Countries(id) );""")
+
+	def ShowCountries(self, person_id):
+		country_ids = self.cursor.execute("""SELECT id_country FROM PersonCountry WHERE
+			id_person = ?;""", [person_id]).fetchall()
+		results = []
+		for country_id in country_ids:
+			results.append(self.cursor.execute("""SELECT name FROM Countries WHERE 
+				id = ?;""", [country_id[0]]).fetchone()[0])
+		return results
+
+"""
+	def AddPersonCountry(self, person_name, country_name):
+		person_id =  self.persons.ShowIDByName(person_name)
+		country_id = self.ShowIDByName(person_name)
+		if country_id is not None and person_id is not None:
+			self.cursor.execute("INSERT INTO PersonCountry (id_person, id_country) VALUES (?, ?);",
+				[person_name[0], country_name[0]])
+			return True
+		else:
+			return False
+"""

@@ -11,6 +11,16 @@
 <p> Born in {{ birth_year }} </p>
 
 <p>
+	Countries:
+	<ul>
+		{% for country in countries %}
+			<li> {{ country }} </li>
+		{% endfor %}
+	</ul>
+</p>
+
+<p>
+	Filmography:
 	<ul>
 		{% for title, job in filmography %}
 			<li>Movie "{{ title }}"      {{ job }}</li>
